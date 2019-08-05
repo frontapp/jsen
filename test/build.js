@@ -442,6 +442,156 @@ describe('build', function () {
         });
     });
 
+    describe('allOf', function () {
+        var cases = {
+            'basic types - first value wins': {
+                schema: {
+                    allOf: [
+                        { default: 'foo' },
+                        { default: 'baz' }
+                    ]
+                },
+                expected: 'foo'
+            },
+            'objects - properties are combined': {
+                schema: {
+                    allOf: [{
+                        default: {},
+                        properties: {
+                            foo: { default: 123 }
+                        }
+                    }, {
+                        default: {},
+                        properties: {
+                            bar: { default: 'abc' }
+                        }
+                    }, {
+                        default: {},
+                        properties: {
+                            baz: { default: false }
+                        }
+                    }]
+                },
+                expected: {
+                    foo: 123,
+                    bar: 'abc',
+                    baz: false
+                }
+            },
+            'nested objects - properties are combined': {
+                schema: {
+                    allOf: [{
+                        default: {},
+                        properties: {
+                            foo: {
+                                default: { bar: 'baz' }
+                            }
+                        }
+                    }, {
+                        default: {},
+                        properties: {
+                            foo: {
+                                properties: {
+                                    name: { default: 'John' }
+                                }
+                            }
+                        }
+                    }]
+                },
+                expected: {
+                    foo: {
+                        bar: 'baz',
+                        name: 'John'
+                    }
+                }
+            },
+            'objects - duplicate keys - first value wins': {
+                schema: {
+                    allOf: [{
+                        default: {},
+                        properties: {
+                            foo: { default: '123' },
+                            bar: { default: true }
+                        }
+                    }, {
+                        default: {},
+                        properties: {
+                            foo: { default: null },
+                            baz: { default: false }
+                        }
+                    }]
+                },
+                expected: {
+                    foo: '123',
+                    bar: true,
+                    baz: false
+                }
+            },
+            'arrays - fixed item count - first defined item wins': {
+                schema: {
+                    allOf: [{
+                        default: [],
+                        items: [
+                            { default: 123 },
+                            { default: { foo: 'bar', name: 'John' } }
+                        ]
+                    }, {
+                        default: [],
+                        items: [
+                            { default: 'abc' },
+                            { default: { foo: 'baz' } },
+                            { default: true }
+                        ]
+                    }]
+                },
+                expected: [123, { foo: 'bar', name: 'John' }, true]
+            },
+            'arrays - variable item count - items are combined': {
+                schema: {
+                    allOf: [{
+                        default: [{}, undefined, {}, 123],
+                        items: {
+                            properties: {
+                                foo: {
+                                    default: 'abc'
+                                },
+                                bar: {
+                                    default: null
+                                }
+                            }
+                        }
+                    }, {
+                        default: [{}, {}],
+                        items: {
+                            default: {},
+                            properties: {
+                                foo: {
+                                    default: 123
+                                },
+                                baz: {
+                                    default: false
+                                }
+                            }
+                        }
+                    }]
+                },
+                expected: [
+                    { foo: 'abc', bar: null, baz: false },
+                    { foo: 123, baz: false },
+                    { foo: 'abc', bar: null, baz: false },
+                    123
+                ]
+            }
+        };
+
+        Object.keys(cases).forEach(function (name) {
+            it(name, function () {
+                var validate = jsen(cases[name].schema);
+                assert.deepEqual(validate.build(cases[name].initial), cases[name].expected);
+            });
+        });
+    });
+
     describe('option: copy', function () {
         it('returns deep copy of the initial object by default', function () {
             var schema = {},
@@ -567,6 +717,20 @@ describe('build', function () {
                 validate = jsen(schema);
 
             assert.deepEqual(validate.build(initial, { additionalProperties: false }), expected);
+        });
+
+        it('"always" takes precedence over schema.additionalProperties', function () {
+            var schema = {
+                    additionalProperties: false,
+                    properties: {
+                        foo: {}
+                    }
+                },
+                initial = { foo: 1, bar: 2 },
+                expected = { foo: 1, bar: 2 },
+                validate = jsen(schema);
+
+            assert.deepEqual(validate.build(initial, { additionalProperties: 'always' }), expected);
         });
     });
 });

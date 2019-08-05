@@ -1,11 +1,15 @@
-JSEN 
+[![JSEN][jsen-img]][jsen-web]
 =================
 
-[![Build][travis-img]][travis-url] [![Coverage][coveralls-img]][coveralls-url] [![Downloads][downloads-img]][npm-url]
+[![Build][travis-img]][travis-url] [![Coverage][coveralls-img]][coveralls-url] [![Downloads][downloads-img]][npm-url] [![JSEN][jsen-web-badge]][jsen-web]
 
 [![NPM][npm-img]][npm-url]
 
+<!-- [![testling][testling-img]][testling-url] -->
+
 jsen (JSON Sentinel) validates your JSON objects using [JSON-Schema](http://json-schema.org/documentation.html).
+
+Website: [http://bugventure.github.io/jsen][jsen-web]
 
 ### Table of Contents
 
@@ -17,6 +21,7 @@ jsen (JSON Sentinel) validates your JSON objects using [JSON-Schema](http://json
 - [Format Validation](#format-validation)
     - [Custom Formats](#custom-formats)
 - [External Schemas](#external-schemas)
+    - [Remote Schemas](#remote-schemas)
 - [Errors](#errors)
     - [Custom Errors](#custom-errors)
     - [Custom Errors for Keywords](#custom-errors-for-keywords)
@@ -92,9 +97,9 @@ If you need to validate your schema object, you can use a reference to the [JSON
 var validateSchema = jsen({"$ref": "http://json-schema.org/draft-04/schema#"});
 var isSchemaValid = validateSchema({ type: 'object' }); // true
 
-isSchemaValid = validateSchema({ 
-    type: 'object', 
-    properties: ['string', 'number'] 
+isSchemaValid = validateSchema({
+    type: 'object',
+    properties: ['string', 'number']
 });
 // false, because properties is not in correct format
 ```
@@ -113,11 +118,11 @@ More on V8 optimization: [Performance Tips for JavaScript in V8](http://www.html
 
 ## JSON Schema
 
-To get started with JSON Schema, check out the [JSEN schema guide](schema.md).
+To get started with JSON Schema, check out the [JSEN schema guide](http://bugventure.github.io/jsen/json-schema).
 
 For further reading, check out this [excellent guide to JSON Schema](http://spacetelescope.github.io/understanding-json-schema/UnderstandingJSONSchema.pdf) by Michael Droettboom, et al.
 
-JSEN fully implements draft 4 of the [JSON Schema specification](http://json-schema.org/documentation.html). 
+JSEN fully implements draft 4 of the [JSON Schema specification](http://json-schema.org/documentation.html).
 
 ## Format Validation
 
@@ -127,7 +132,7 @@ JSEN supports a few built-in formats, as defined by the [JSON Schema spec](http:
 * `uri`
 * `email`
 * `ipv4`
-* `ipv6` 
+* `ipv6`
 * `hostname`
 
 These formats are validated against string values only. As per the spec, format validation passes successfully for any non-string value.
@@ -142,7 +147,7 @@ validate({});               // true - does not kick in for non-strings
 
 ### Custom Formats
 
-JSEN additionally supports custom format validation. Custom formats are passed in `options.formats` as a second argument to the `jsen` validator builder function. 
+JSEN additionally supports custom format validation. Custom formats are passed in `options.formats` as a second argument to the `jsen` validator builder function.
 
 ```javascript
 var schema = { format: 'uuid' },
@@ -197,6 +202,20 @@ validate = jsen(schema, {   // OK, will ignore missing references
 })
 ```
 
+### Remote Schemas
+
+Although JSEN does not automatically fetch remote schemas by making HTTP requests, you can fetch and provide them through the `schemas` option by giving their URIs as object keys.
+
+```javascript
+var schema = { $ref: 'http://localhost:1234/integer.json' },
+    externalSchema = { type: 'integer' }, // Downloaded from http://localhost:1234/integer.json
+    validate = jsen(schema, {
+        schemas: {
+            'http://localhost:1234/integer.json': externalSchema
+        }
+    });
+```
+
 ## Errors
 
 The validator function (the one called with the object to validate) provides an `errors` array containing all reported errors in a single validation run.
@@ -242,6 +261,26 @@ console.log(validate.errors);
 [ { path: 'tags', keyword: 'type' },
   { path: 'comment', keyword: 'minLength' },
   { path: '', keyword: 'anyOf' } ]
+*/
+```
+
+When the `additionalProperties` keyword fails validation, the respective error object contains a key by the same name, specifying the property name that was found in the validated object, but was fobidden in the schema:
+
+```javascript
+var schema = {
+    properties: { foo: {} },
+    additionalProperties: false
+}
+
+var validate = jsen(schema);
+
+validate({ foo: 'foo', bar: 'bar' });   // false
+
+console.log(validate.errors);
+/* Output:
+[ { path: '',
+    keyword: 'additionalProperties',
+    additionalProperties: 'bar' } ]
 */
 ```
 
@@ -495,6 +534,22 @@ console.log(initial);   // { foo: 1, bar: 2, baz: 3 }
 
 NOTE: When `{ additionalProperties: false, copy: false }` is specified in the `build` options, any additional properties will be deleted from the initial data object.
 
+In some scenarios, you may want to disallow additional properties in the schema, but still keep them when gathering default values with `build()`. This may be required, for example, when you want to explicitly fail validation and display a message to the user, listing any excessive properties that are forbidden by the schema. Setting `{ additionalProperties: 'always' }` will prevent the `build()` function from removing any properties in the initial object.
+
+```javascript
+var schema = {
+        additionalProperties: false,
+        properties: {
+            foo: {}
+        }
+    };
+var initial = { foo: 1, bar: 2 };
+var validate = jsen(schema);
+
+var withDefaults = validate.build(initial, { additionalProperties: 'always' });
+// withDefaults has both 'foo' and 'bar' keys
+```
+
 ## In-Browser Usage
 
 Browser-compatible builds of `jsen` (with the help of [browserify](http://npmjs.com/package/browserify)) can be found in the `dist` folder. These are built with the [standalone](https://github.com/substack/browserify-handbook#standalone) option of browserify, meaning they will work in node, the browser with globals, and AMD loader environments. In the browser, the `window.jsen` global object will refer to the validator builder function.
@@ -502,8 +557,8 @@ Browser-compatible builds of `jsen` (with the help of [browserify](http://npmjs.
 Load from CDN, courtesy of [rawgit](https://rawgit.com/):
 
 ```
-//cdn.rawgit.com/bugventure/jsen/v0.6.0/dist/jsen.js
-//cdn.rawgit.com/bugventure/jsen/v0.6.0/dist/jsen.min.js
+//cdn.rawgit.com/bugventure/jsen/v0.6.6/dist/jsen.js
+//cdn.rawgit.com/bugventure/jsen/v0.6.6/dist/jsen.min.js
 ```
 
 ## Tests
@@ -524,11 +579,7 @@ serving "." at http://127.0.0.1:8080
 # navigate to http://127.0.0.1:8080/test/ in your browser
 ```
 
-`jsen` passes all draft 4 test cases specified by the [JSON-Schema-Test-Suite](https://github.com/json-schema/JSON-Schema-Test-Suite) with the exception of:
-
-* Remote refs
-* Zero-terminated floats
-* Max/min length when using Unicode surrogate pairs
+`jsen` passes all draft 4 test cases specified by the [JSON-Schema-Test-Suite](https://github.com/json-schema/JSON-Schema-Test-Suite) with the exception of zero-terminated float tests.
 
 Source code coverage is provided by [istanbul][istanbul] and visible on [coveralls.io][coveralls-url].
 
@@ -565,8 +616,11 @@ Read [changelog.md](changelog.md)
 
 ## License
 
-MIT 
+[MIT](LICENSE)
 
+[jsen-web]: http://bugventure.github.io/jsen
+[jsen-img]: http://bugventure.github.io/jsen/assets/images/jsen.png
+[jsen-web-badge]: https://img.shields.io/badge/www-github.io/jsen-40babd.svg
 [travis-url]: https://travis-ci.org/bugventure/jsen
 [travis-img]: https://travis-ci.org/bugventure/jsen.svg?branch=master
 [npm-url]: https://www.npmjs.org/package/jsen
@@ -576,3 +630,5 @@ MIT
 [coveralls-url]: https://coveralls.io/r/bugventure/jsen
 [istanbul]: https://www.npmjs.org/package/istanbul
 [mocha]: http://mochajs.org/
+[testling-img]: https://ci.testling.com/bugventure/jsen.png
+[testling-url]: https://ci.testling.com/bugventure/jsen

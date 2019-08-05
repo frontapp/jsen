@@ -1,23 +1,31 @@
 /* global describe, it */
 'use strict';
 
-var dir = 'draft4',
+var dir = '../node_modules/json-schema-test-suite/tests/draft4',
     assert = assert || require('assert'),
     jsen = jsen || require('../index.js'),
     path = jsen.browser ? null : require('path'),
     fs = jsen.browser ? null : require('fs'),
-    testDir = jsen.browser ? './' + dir + '/' : path.resolve(__dirname, dir),
+    testDir = jsen.browser ? dir + '/' : path.resolve(__dirname, dir),
     files,
     testCategories = [],
     error,
     excludedFiles = [
-        'refRemote',
         'zeroTerminatedFloats'
     ],
-    excludedCases = [
-        'two supplementary Unicode code points is long enough',
-        'one supplementary Unicode code point is not long enough'
-    ],
+    refs = {
+        'http://localhost:1234/integer.json': '../node_modules/json-schema-test-suite/remotes/integer.json',
+        'http://localhost:1234/subSchemas.json': '../node_modules/json-schema-test-suite/remotes/subSchemas.json',
+        'http://localhost:1234/folder/folderInteger.json': '../node_modules/json-schema-test-suite/remotes/folder/folderInteger.json'
+    },
+    httpGet = function (url, onload) {
+        var xhr = new XMLHttpRequest();     // jshint ignore: line
+        xhr.onload = function () {
+            onload(JSON.parse(this.responseText));
+        };
+        xhr.open('GET', url, false);
+        xhr.send(null);
+    },
     walk;
 
 if (jsen.browser) {
@@ -49,30 +57,32 @@ if (jsen.browser) {
                 'patternProperties',
                 'properties',
                 'ref',
+                'refRemote',
                 'required',
                 'type',
                 'uniqueItems'
             ],
-            xhr, spec;
+            spec;
+
+        function onXhrLoad(data) {
+            testCategories.push({
+                name: spec,
+                testGroups: data    // jshint ignore: line
+            });
+        }
 
         while (specs.length) {
             spec = specs.shift();
-
-            xhr = new XMLHttpRequest();     // jshint ignore: line
-
-            xhr.onload = function () {
-                testCategories.push({
-                    name: spec,
-                    testGroups: JSON.parse(this.responseText)
-                });
-            };                              // jshint ignore: line
-
-            xhr.open('GET', dir + spec + '.json', false);
-
-            xhr.send(null);
+            httpGet(dir + spec + '.json', onXhrLoad);
         }
 
     };
+
+    Object.keys(refs).forEach(function (key) {
+        httpGet(refs[key], function (data) {
+            refs[key] = data;
+        });
+    });
 }
 else {
     walk = function (dir) {
@@ -94,6 +104,10 @@ else {
             }
         });
     };
+
+    Object.keys(refs).forEach(function (key) {
+        refs[key] = require(refs[key]);
+    });
 }
 
 try {
@@ -104,14 +118,16 @@ catch (e) {
 }
 
 function addTestCase(schema, testCase) {
-    if (excludedCases.indexOf(testCase.description) > -1) {
+    if (testCase.skip) {
         return;
     }
 
-    it(testCase.description, function () {
+    var test = testCase.only ? it.only : it;
+
+    test(testCase.description, function () {
         var prejson = JSON.stringify(schema);
 
-        assert.strictEqual(jsen(schema)(testCase.data), testCase.valid);
+        assert.strictEqual(jsen(schema, { schemas: refs })(testCase.data), testCase.valid);
 
         assert.strictEqual(JSON.stringify(schema), prejson,
             'validator does not modify original JSON');
