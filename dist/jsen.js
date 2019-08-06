@@ -1,7 +1,7 @@
 /*
  * jsen
  * https://github.com/bugventure/jsen
- * v0.6.6-1
+ * v0.6.6-2
  *
  * Copyright (c) 2016 Veli Pehlivanov <bugventure@gmail.com>
  * Licensed under the MIT license
@@ -434,10 +434,6 @@ keywords.required = function (context) {
     }
 
     for (i = 0; i < required.length; i++) {
-        if (properties && properties[required[i]] && typeof properties[required[i]] === 'object') {
-            continue;
-        }
-
         context.code('if (' + appendToPath(context.path, required[i]) + ' === undefined) {');
         context.error('required', required[i]);
         context.code('}');
